@@ -9,6 +9,10 @@
     "email": "me@yunyoujun.cn",
     "url": "https://yunyoujun.cn"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YunLeFun/vitesse-nuxt-electron"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "build": "npm run build:electron",
