@@ -2,12 +2,8 @@ name: Build
 
 on:
   push:
-    branches:
-      - main
-
-  pull_request:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -25,3 +21,4 @@ jobs:
 
       - name: Build
         run: pnpm run build
+        # need GH_TOKEN to publish
