@@ -1,0 +1,11 @@
+node_modules
+*.log
+dist
+.output
+.nuxt
+.env
+.idea/
+
+# electron
+dist-electron/
+release
