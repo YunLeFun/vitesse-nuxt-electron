@@ -30,6 +30,10 @@ pnpm i # If you don't have pnpm installed, run: npm install -g pnpm
 
 ## Dev
 
+```bash
+pnpm dev
+```
+
 When you first enter, You will see `Nuxt is not ready yet!`.
 
 Just refresh it until nuxt ready.

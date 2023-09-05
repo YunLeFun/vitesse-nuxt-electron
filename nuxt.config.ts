@@ -1,3 +1,4 @@
+import type { ElectronOptions } from 'nuxt-electron'
 import { pwa } from './config/pwa'
 import { appDescription } from './constants/index'
 
