@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ipcRenderer } from 'electron'
 import { toggleElectronDarkMode } from '~/utils'
 
 const color = useColorMode()
