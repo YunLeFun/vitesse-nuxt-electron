@@ -25,6 +25,7 @@
     "lint": "eslint .",
     "postinstall": "nuxi prepare",
     "generate": "nuxi generate",
+    "release": "bumpp --commit --push --tag",
     "start:generate": "npx serve .output/public"
   },
   "devDependencies": {
