@@ -20,5 +20,5 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run: nuxi build --prerender && electron-builder --publish never
+        run: npx nuxi build --prerender && electron-builder --publish never
         # need GH_TOKEN to publish
