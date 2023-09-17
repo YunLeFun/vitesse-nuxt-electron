@@ -1,6 +1,6 @@
 import path from 'node:path'
 import process from 'node:process'
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow, app, ipcMain, nativeTheme } from 'electron'
 
 // The built directory structure
 //
@@ -40,6 +40,21 @@ async function bootstrap() {
   else {
     win.loadFile(path.join(process.env.VITE_PUBLIC!, 'index.html'))
   }
+
+  // dark mode
+  ipcMain.handle('dark-mode:toggle', () => {
+    if (nativeTheme.shouldUseDarkColors)
+      nativeTheme.themeSource = 'light'
+
+    else
+      nativeTheme.themeSource = 'dark'
+
+    return nativeTheme.shouldUseDarkColors
+  })
+
+  ipcMain.handle('dark-mode:system', () => {
+    nativeTheme.themeSource = 'system'
+  })
 }
 
 app.whenReady().then(bootstrap)

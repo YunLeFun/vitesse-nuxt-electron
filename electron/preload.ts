@@ -1,2 +1,3 @@
-// eslint-disable-next-line no-console
-console.log('---- electron/preload.ts ----')
+import consola from 'consola'
+
+consola.log('---- electron/preload.ts ----')
