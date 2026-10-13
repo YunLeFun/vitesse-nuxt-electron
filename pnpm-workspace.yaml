@@ -1,0 +1,74 @@
+minimumReleaseAgeExcludePrune: true
+
+# Electron Forge requires hoisted production dependencies.
+minimumReleaseAgeExclude:
+  - '@vitest/mocker@5.0.4'
+  - '@vitest/spy@5.0.4'
+  - '@vue/compiler-core@3.5.44'
+  - '@vue/compiler-dom@3.5.44'
+  - '@vue/compiler-sfc@3.5.44'
+  - '@vue/compiler-ssr@3.5.44'
+  - '@vue/reactivity@3.5.44'
+  - '@vue/runtime-core@3.5.44'
+  - '@vue/runtime-dom@3.5.44'
+  - '@vue/server-renderer@3.5.44'
+  - '@vue/shared@3.5.44'
+  - vitest@5.0.4
+  - vue@3.5.44
+
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
+# cssnano changed from staged publishing to trusted GitHub publishing.
+# These exact releases have npm provenance from cssnano/cssnano's publish.yml:
+# commits 0ffb7e99f56b1d9af3fb9ae22f3c704456da8617 and 16fbeb37b665363bcf066d2728bd4a9dc6d1d17f.
+trustPolicyExclude:
+  - cssnano-preset-default@9.6.0
+  - cssnano-utils@9.0.0
+  - cssnano@9.6.0
+  - postcss-colormin@9.0.8
+  - postcss-convert-values@9.0.9
+  - postcss-discard-comments@9.0.8
+  - postcss-discard-duplicates@9.0.7
+  - postcss-discard-empty@9.0.8
+  - postcss-discard-overridden@9.0.6
+  - postcss-merge-longhand@9.4.0
+  - postcss-merge-rules@9.1.4
+  - postcss-minify-font-values@9.0.9
+  - postcss-minify-gradients@9.0.8
+  - postcss-minify-params@9.0.8
+  - postcss-minify-selectors@9.0.8
+  - postcss-normalize-charset@9.0.6
+  - postcss-normalize-display-values@9.0.7
+  - postcss-normalize-positions@9.0.8
+  - postcss-normalize-repeat-style@9.0.7
+  - postcss-normalize-string@9.0.7
+  - postcss-normalize-timing-functions@9.0.7
+  - postcss-normalize-unicode@9.1.1
+  - postcss-normalize-url@9.0.7
+  - postcss-normalize-whitespace@9.0.8
+  - postcss-ordered-values@9.0.9
+  - postcss-reduce-initial@9.0.7
+  - postcss-reduce-transforms@9.0.6
+  - postcss-svgo@9.0.6
+  - postcss-unique-selectors@9.0.6
+  - stylehacks@9.0.8
+
+nodeLinker: hoisted
+shellEmulator: true
+verifyDepsBeforeRun: error
+
+# Nuxt DevTools still selects simple-git 3, whose unsafe-operation guard is vulnerable.
+overrides:
+  '@nuxt/devtools>simple-git': 4.0.2
+
+patchedDependencies:
+  '@nuxt/devtools@3.4.2': patches/@nuxt__devtools@3.4.2.patch
+
+allowBuilds:
+  '@parcel/watcher': true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  fs-xattr: true
+  macos-alias: true
+  unrs-resolver: true

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": [
+      "node"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "electron/**/*.ts",
+    "app/types/**/*.d.ts",
+    "shared/**/*.ts",
+    "tests/**/*.ts",
+    "vite.electron.config.ts",
+    "playwright.config.ts",
+    "vitest.config.ts"
+  ]
+}

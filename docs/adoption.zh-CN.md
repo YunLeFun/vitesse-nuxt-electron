@@ -1,0 +1,116 @@
+# 模板接入与多端仓库组织
+
+更新日期：2026-10-13。本文的 workspace 目录和后续能力是建议方案，当前模板仍是一个独立的 Nuxt + Electron 项目。
+
+## Nuxt 与 Vue + Vite 的选择
+
+已有 Nuxt 业务、希望复用页面、插件、composables 和配置时，推荐首版继续使用 Nuxt。云乐坊的 `apps.yunle.fun` 属于这种情况。迁移到 Vue + Vite 需要适配 `useNuxtApp`、`useRuntimeConfig`、Nuxt 路由和模块；已有 Ionic／Capacitor 的移动端逻辑也需要桌面平台实现。
+
+从零开发、界面主要承载标签页和远程网页的桌面容器，可以选择 Vue + Vite，以减少框架和构建链依赖。Electron 的内嵌网页能力与本地界面框架无关。
+
+当前模板使用 `ssr: false`，通过 Nuxt 生成静态客户端。安装包加载 `app://shell`，只包含 `.output/public`；API 和其他服务端功能继续部署在云端。接入远程 API 时，需要配置明确的基址、客户端 CSP 和服务端 CORS，并验证本地 Origin 下的登录、刷新和退出。
+
+| 模块 | 职责 |
+| --- | --- |
+| 本地 Nuxt 界面 | 业务页面、导航、账户展示，通过受限 preload 调用桌面能力 |
+| Electron 主进程 | 窗口、WebContentsView、Session、导航策略、权限与更新 |
+| guest 网页 | 内嵌应用自己的界面和网络请求，使用独立 Session |
+
+主进程与 preload 不依赖 Nuxt composables。业务通过固定、类型化的接口访问平台能力；移动端和桌面端各自实现所需操作。
+
+## 同一产品的移动端与桌面端放在同一仓库
+
+推荐同一产品采用一个产品仓库。账号、应用目录、云同步规则和宿主协议能够在同一个 PR 中修改、验证，避免两个客户端长期复制业务逻辑。
+
+适合共享的内容包括业务模型、API 客户端、协议类型、验证逻辑、设计变量和通用 Vue 组件。移动导航、桌面标签栏、原生权限、登录回调和系统集成使用各自的实现。通用 UI 包不直接导入 Electron、Capacitor 或 Ionic 的平台导航。
+
+同仓库不要求所有端使用同一个页面入口、版本号或发布时间。Web、移动和桌面分别维护构建、环境设置、应用标识与发布流程。
+
+### 先接入，再逐步拆分
+
+现有项目可以先保留 Nuxt 应用和 `ios/`、`android/` 工程，在产品仓库加入 `electron/` 与显式的桌面构建目标。桌面主界面调用共享业务模块，平台差异集中到宿主实现和布局中。
+
+等移动与桌面页面形成稳定、不同的入口后，再迁移到 pnpm workspace。以下是演进示例，并非已创建的目录：
+
+```text
+product/
+  apps/
+    web-mobile/           # Nuxt Web／移动界面及 ios/、android/
+    desktop/              # Nuxt 桌面界面及 electron/、Forge 配置
+  packages/
+    domain/               # 业务模型、规则和纯逻辑
+    api-client/           # 请求、会话接口；存储和平台行为由调用方提供
+    host-contracts/       # Web／Capacitor／Electron 共用的协议类型
+    ui/                   # 通用 Vue 组件和设计变量
+    nuxt-layer/           # 有实际复用需求的 Nuxt 插件、composables 或页面
+  pnpm-workspace.yaml
+  pnpm-lock.yaml
+```
+
+Web 与移动也可以在界面需求明显分化时再拆成独立项目。已有共享包可以沿用名称；不必为了符合目录示例而新增或重命名一批包。
+
+使用 `workspace:*` 声明实际的本地包依赖，统一根目录的 Node、pnpm 和锁文件管理。Nuxt Layer 用于共享 Nuxt 特有代码；各应用保留自己的页面组合与布局。项目自身文件优先于 Layer，不能依赖附加 Layer 覆盖项目现有的 `app.vue`。
+
+### 构建与发布分别验收
+
+- Web、移动和桌面使用各自的 Nuxt 缓存、静态输出和发布目录，防止构建互相覆盖。
+- 移动端签名、商店上传与 Electron 签名、安装包、自动更新使用独立工作流和凭据。
+- 独立版本以各应用的 manifest 为准。迁入 workspace 时同步调整 Forge 工作目录、发布脚本和版本校验；当前模板按单应用根 package.json 与 `vX.Y.Z` 标签校验。
+- 平台目录变化验证对应应用；共享模块变化验证所有使用它的应用。先保留完整验证，再引入按依赖关系筛选任务。
+- 在 workspace 中核对 Forge 的项目根目录、打包白名单和运行时依赖。共享代码须被构建进产物或作为实际运行依赖收集，安装包不能依赖仓库外的源码或软链接。
+
+当产品、团队权限或核心业务已经独立，共享内容很少时，再考虑分仓并发布共享包。云乐坊首版的业务和协议重合度高，当前适合同仓库协作。
+
+### 同仓库中的标签与桌面更新源
+
+当前模板的公共 GitHub 更新服务只收集有效 SemVer 标签的正式版本，并选择包含所需安装／更新产物的版本。桌面可以保留 `vX.Y.Z`，移动发布使用如 `mobile-vX.Y.Z` 的独立标签。
+
+如果桌面也采用 `desktop-vX.Y.Z`，需要一起调整工作流触发条件、Forge publisher 的 `tagPrefix` 和版本校验，并选择能识别该发布方案的更新源；该标签不属于默认公共服务收集的 SemVer 标签。对象存储更新源可以按桌面应用、平台与架构隔离。标签命名和更新源都需要从真实安装版本验证。参考 [官方更新服务规则](https://github.com/electron/update-electron-app/blob/main/README.md#how-does-this-module-handle-github-release-states)。
+
+## 通用模板与产品仓库的关系
+
+`vitesse-nuxt-electron` 保持为通用模板，维护安全 preload、静态协议、视图示例、构建和发布。云乐坊目录、登录服务、会员规则和其他业务留在产品仓库。
+
+接入时移植经过验证的宿主实现和构建方式，并适配产品自己的依赖基线；产品仓库的 manifest 和锁文件继续由产品维护。通用修复回流模板。只有出现多个实际消费者、接口稳定后，才将宿主模块抽成共享包。
+
+## 当前能力与完善顺序
+
+模板已经实现隔离的 shell／guest preload、发送者和主 frame／Origin 校验、独立持久化 Session、静态协议、开发启动与重启、Forge 打包和客户端更新流程。CI 已验证 macOS arm64、Windows x64、Linux x64 的安装、类型、测试、原生打包和 ASAR／fuse 配置。
+
+### 开发重启与回归验证
+
+开发脚本已修复连续保存丢失和重建期间退出卡住的问题：
+
+- 保存 `electron/` 文件采用 200 ms 防抖；重建期间就绪的新请求会合并为后续重建，最终加载最后一次保存的版本。接近构建结束时保存，可能先短暂加载中间版本，再完成后续重启。构建失败不会主动终止已有 Electron 进程，已排队的保存仍会继续构建。
+- 重建期间主动退出 Electron，会终止整个开发流程、清理子进程并关闭监听器。只有重启脚本主动终止的旧进程会被视为预期退出；对已经退出的子进程不会再次等待退出事件。
+
+`pnpm test` 包含 [开发进程回归测试](../tests/unit/dev.test.mjs)，直接导入实际的 `scripts/dev.mjs`，控制构建完成、保存通知和子进程退出的时机。测试覆盖连续保存、失败后的排队重建、重建期间退出、正常替换后退出，以及构建期间 Ctrl+C。三平台 CI 都执行这些测试，并验证当前平台的 Windows `taskkill` 或 macOS／Linux 进程组终止命令。
+
+`pnpm test:e2e` 另行验证真实 Electron 静态应用，不经过开发进程管理脚本。完整开发冒烟仍可通过连续修改桌面代码、确认最终版本加载、重建期间退出应用、同一端口再次启动来验收。macOS 关闭最后一个窗口会保留应用进程，退出应用应使用 Quit／Cmd+Q。修改 `shared/` 或桌面构建配置后，目前仍需手动重启开发命令。
+
+### 后续产品与发布工作
+
+以下能力仍需完善：
+
+| 顺序 | 改进 | 当前缺口 |
+| --- | --- | --- |
+| 1 | 统一应用配置与初始化 | 名称、可执行文件名、协议、Session 标识和更新仓库分散在多处 |
+| 2 | AppManifest 与 ViewManager | 目前硬编码两个文档站，一次只保留一个 guest；需要标签管理、账号配置隔离和恢复机制 |
+| 3 | 真实应用接入示例 | 验证 API、登录、受控弹窗、外链、下载和按请求授权的设备权限 |
+| 4 | 开发与诊断 | `shared/` 变更触发桌面重启、窗口状态恢复、原生菜单、失败日志和截图 |
+| 5 | 发布验收 | 补 macOS x64 常规 CI，用真实证书验证签名、公证、安装和跨版本更新 |
+
+Vue 弹窗的 `z-index` 无法直接覆盖原生 WebContentsView，需要显式安排视图隐藏或可信原生窗口。发布工作流已配置签名和更新产物，但还没有完成真实签名版本之间的安装升级演练。
+
+正式发布验收需要在干净环境安装 macOS／Windows 签名产物、验证 macOS 公证与 Gatekeeper，并用已经安装的版本 N 升级到正式发布的稳定版本 N+1，核对应用标识和网页存储是否保留。默认更新源不提供草稿版本，仅生成 draft 不能完成更新链路验收。记录实际验证的版本、系统和架构，macOS x64 需要补充独立的构建与安装证据。英文操作说明见 [README 的打包与验收说明](../README.md#package-and-make-installers)。
+
+依赖采用人工升级。TypeScript 目前保留最新兼容版 6.0.3，Node 类型匹配 Node 24。移除过期的精确发布信任例外，并在上游采用已修复的 simple-git 后清理 DevTools 兼容补丁；运行时和完整工具链审计分别记录。
+
+分别运行 `pnpm audit --prod` 与 `pnpm audit`，记录运行时依赖和完整开发工具链的结果。运行时审计为零漏洞，不代表构建、打包和 lint 工具没有已知风险；开发依赖即使没有进入安装包，也需要逐项评估审计结果。
+
+## 参考
+
+- [pnpm Workspace 与 workspace 协议](https://pnpm.io/workspaces)
+- [Nuxt Layers](https://nuxt.com/docs/4.x/guide/going-further/layers)
+- [Electron 官方打包教程](https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging)
+- [Forge Squirrel.Windows 安装与更新产物](https://www.electronforge.io/config/makers/squirrel.windows)

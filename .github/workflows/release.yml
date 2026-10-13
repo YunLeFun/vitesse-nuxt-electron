@@ -1,92 +1,80 @@
 name: Release
-
 on:
   push:
-    tags:
-      - 'v*'
-
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable version tag, for example v0.1.0
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
 jobs:
-  release:
-    name: Release
-
-    # cross platform
+  publish-assets:
     strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: false
-
+      # Avoid races when Forge creates the shared draft release.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+          - os: windows-latest
+            arch: x64
+          - os: ubuntu-latest
+            arch: x64
     runs-on: ${{ matrix.os }}
-
     env:
-      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
-
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-
-      # after pnpm
-      - name: Use Node.js 16
-        uses: actions/setup-node@v3
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v7
         with:
-          node-version: 16
-          registry-url: https://registry.npmjs.org/
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v2
-        # Only install Snapcraft on Ubuntu
-        if: startsWith(matrix.os, 'ubuntu')
-
-      - name: Prepare for app notarization
-        if: startsWith(matrix.os, 'macos')
-        # Import Apple API key for app notarization on macOS
-        run: |
-          mkdir -p ~/private_keys/
-          echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
-
-      - name: Build Electron App
-        run: pnpm run build
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - run: node scripts/check-release.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:e2e
+        if: runner.os != 'Linux'
+      - run: xvfb-run --auto-servernum pnpm test:e2e
+        if: runner.os == 'Linux'
+      - name: Prepare signing credentials
+        run: node scripts/prepare-signing.mjs
         env:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-
-      - run: npx changelogithub # or changelogithub@0.12 if ensure the stable result
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-
-      - name: Cleanup Artifacts for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          npx rimraf "release/!(*.AppImage)"
-
-      - name: Cleanup Artifacts for Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          npx rimraf "release/!(*.exe)"
-
-      - name: Cleanup Artifacts for MacOS
-        if: matrix.os == 'macos-latest'
-        run: |
-          npx rimraf "release/!(*.dmg)"
-
-      - name: upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.os }}
-          path: release
-
-      - name: release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 'release/**'
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      - name: Publish installers and update assets to draft
+        run: pnpm run publish --arch=${{ matrix.arch }}
+      - run: pnpm verify:package
+      - name: Remove signing credentials
+        if: always()
+        run: node scripts/prepare-signing.mjs --cleanup
+  publish-release:
+    needs: publish-assets
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Publish completed release
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

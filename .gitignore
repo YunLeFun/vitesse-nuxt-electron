@@ -1,11 +1,15 @@
-node_modules
-*.log
-dist
-.output
-.nuxt
-.env
-.idea/
-
-# electron
+node_modules/
+.nuxt/
+.output/
 dist-electron/
-release
+out/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+release/
+dist
