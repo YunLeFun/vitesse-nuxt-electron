@@ -19,7 +19,7 @@ for (const entry of await fs.readdir(path.join(root, 'out'), { withFileTypes: tr
 if (!archives.length)
   throw new Error('No packaged app found. Run pnpm package first.')
 for (const archive of archives) {
-  const files = listPackage(archive)
+  const files = listPackage(archive).map(file => file.replaceAll('\\', '/'))
   for (const required of ['/package.json', '/dist-electron/main.cjs', '/dist-electron/preload.shell.cjs', '/dist-electron/preload.guest.cjs', '/.output/public/index.html']) {
     if (!files.includes(required))
       throw new Error(`Missing packaged file: ${required}`)
@@ -33,9 +33,10 @@ for (const archive of archives) {
     throw new Error('Incorrect packaged entry')
   if (!files.includes('/node_modules/update-electron-app/package.json'))
     throw new Error('Updater dependency is missing')
-  const binary = archive.includes('/Contents/Resources/')
+  const portableArchive = archive.replaceAll('\\', '/')
+  const binary = portableArchive.includes('/Contents/Resources/')
     ? path.resolve(path.dirname(archive), '../..')
-    : path.join(path.dirname(path.dirname(archive)), forge.packagerConfig.executableName + (archive.includes('-win32-') ? '.exe' : ''))
+    : path.join(path.dirname(path.dirname(archive)), forge.packagerConfig.executableName + (portableArchive.includes('-win32-') ? '.exe' : ''))
   const fuses = await getCurrentFuseWire(binary)
   for (const key of [FuseV1Options.RunAsNode, FuseV1Options.EnableNodeOptionsEnvironmentVariable, FuseV1Options.EnableNodeCliInspectArguments]) {
     if (fuses[key] !== FuseState.DISABLE)
