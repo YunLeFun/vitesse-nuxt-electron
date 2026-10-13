@@ -6,6 +6,10 @@ This starter includes a local Nuxt interface, isolated WebContentsView examples,
 
 Electron does not require Nuxt. This template keeps Nuxt for projects that reuse a Nuxt web application's pages, composables and modules. Its renderer runs as a static SPA, without SSR or an installed Nitro server. A desktop app whose interface only hosts tabs and remote websites can use Vue + Vite directly with fewer framework dependencies.
 
+For an existing Nuxt product, keep Nuxt for the first desktop release and isolate desktop capabilities behind the typed preload interface. Share business code with mobile clients in the product repository while keeping each platform's entry point, build output and release workflow separate. This generic starter remains a separate repository.
+
+See [the adoption and repository organization guide (中文)](./docs/adoption.zh-CN.md) for the renderer choice, a gradual workspace layout and the next improvements to make.
+
 ## Requirements
 
 - Node.js 24.15 or newer in the Node 24 release line.
@@ -72,7 +76,11 @@ Build each target on its matching operating system. The workflows cover:
 | Windows x64 | Squirrel Setup.exe, full.nupkg and RELEASES update metadata |
 | Linux x64 | Debian package; updates through the package manager |
 
+CI has passed frozen installation, lint, type checking, unit tests, actual Electron integration tests, native packaging and ASAR/binary fuse verification on macOS arm64, Windows x64 and Linux x64. The release workflow also configures macOS x64; that target is not currently part of the ordinary CI matrix.
+
 An unsigned local package is useful for smoke tests. Published macOS releases require Developer ID signing and notarization. Release CI requires signing credentials for Windows as well.
+
+Signing, notarization and an installed app's real cross-version update still need validation with release credentials. The current guest example opens one application at a time; multi-tab workspaces, account profiles, OAuth popups and downloads are product integration work.
 
 ## Automatic application updates
 
@@ -157,5 +165,7 @@ CJS output is intentional for sandbox preload compatibility. Application source 
 - [Official automatic update guide](https://www.electronforge.io/advanced/auto-update)
 - [Context isolation](https://www.electronjs.org/docs/latest/tutorial/context-isolation)
 - [WebContentsView](https://www.electronjs.org/docs/latest/api/web-contents-view)
+- [Nuxt Layers](https://nuxt.com/docs/4.x/guide/going-further/layers)
+- [pnpm Workspaces](https://pnpm.io/workspaces)
 
 [MIT](./LICENSE) © YunYouJun
