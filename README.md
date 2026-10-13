@@ -4,13 +4,19 @@ Nuxt 4 + Vue 3 + Electron, packaged with **Electron Forge**, the tool used by th
 
 This starter includes a local Nuxt interface, isolated WebContentsView examples, two restricted preload scripts, development orchestration, application updates and release workflows.
 
+Electron does not require Nuxt. This template keeps Nuxt for projects that reuse a Nuxt web application's pages, composables and modules. Its renderer runs as a static SPA, without SSR or an installed Nitro server. A desktop app whose interface only hosts tabs and remote websites can use Vue + Vite directly with fewer framework dependencies.
+
 ## Requirements
 
 - Node.js 24.15 or newer in the Node 24 release line.
-- pnpm 11 (the exact version is pinned in package.json).
-- Electron 44.7.0 is pinned to a supported stable release. Dependabot proposes newer stable versions.
+- pnpm 12 (the exact version is pinned in package.json).
+- Electron 44.7.0 is pinned to a supported stable release.
+
+The baseline checked on 2026-10-13 uses Nuxt 4.6.1, Vue 3.5.44, Vite 8.3.4, Electron 44.7.0, Electron Forge 8.0.1 and pnpm 12.11.2. These are the latest stable npm releases at that date.
 
 ## Development
+
+When upgrading an existing checkout across pnpm major versions, recreate the generated node_modules directory before installing to avoid retaining the previous hoisted dependency layout.
 
 ```sh
 corepack enable
@@ -119,9 +125,11 @@ GITHUB_TOKEN is provided by GitHub Actions with contents: write. The template do
 
 ## Template maintenance
 
-.github/dependabot.yml opens weekly dependency and GitHub Actions update PRs. Related desktop and Nuxt patch/minor updates are grouped; major changes remain reviewable PRs. CI checks types, lint, security policy tests, actual Electron behavior and native packaging before merging. There is no automatic merge of major upgrades.
+Dependency updates are maintained manually; this template does not configure Dependabot PRs. Use pnpm outdated to check for new releases, update the package manifest and lockfile together, and run CI before merging. CI checks types, lint, security policy tests, actual Electron behavior and native packaging. The installed application's automatic update flow is configured separately in electron/updates.ts and the Release workflow.
 
-TypeScript stays on version 6 until vue-tsc supports the newer compiler API. Build script approval is explicit in pnpm-workspace.yaml. The template does not need nuxt-electron, renderer Node polyfills, PWA caching or a bundled web server.
+TypeScript stays on the latest compatible 6.0.3 release: stock TypeScript 7 removes the classic compiler API required by vue-tsc 3.3.13 and is outside typescript-eslint's peer range. Node typings stay on the latest Node 24 release line to match the build runtime. Build script approval is explicit in pnpm-workspace.yaml. The template does not need nuxt-electron, renderer Node polyfills, PWA caching or a bundled web server.
+
+The pnpm trust policy remains enabled. Its exact-version exceptions cover cssnano releases whose publish evidence changed from staged publishing to trusted GitHub publishing. Their npm provenance was reviewed against the upstream cssnano/cssnano publish workflow and the source commits recorded in pnpm-workspace.yaml. They do not exempt future releases; remove them when the locked releases pass the seven-day trust review window.
 
 ## Structure
 
