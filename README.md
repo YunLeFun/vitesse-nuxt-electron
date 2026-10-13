@@ -28,7 +28,11 @@ pnpm install
 pnpm dev
 ```
 
-The development script checks port availability, starts Nuxt on 127.0.0.1, waits for its health response and compiled preloads, then starts Electron through Forge. Nuxt changes use HMR. Changes under electron/ rebuild the desktop bundles and restart Electron. Ctrl+C and closing the Electron process stop the child processes.
+The development script checks port availability, starts Nuxt on 127.0.0.1, waits for its health response and compiled preloads, then starts Electron through Forge. Nuxt changes use HMR. Changes under electron/ trigger a rebuild of the desktop bundles and an Electron restart after a 200 ms debounce. Rebuild requests that become ready during an active build are coalesced into a follow-up build. The final saved version is loaded after any follow-up restart; a save near the end of a build can briefly load an intermediate version before its debounce completes. A failed build does not terminate an existing Electron process and still processes any queued save.
+
+Ctrl+C or quitting Electron stops the child processes and closes the watcher, including during a rebuild. Only the old process deliberately terminated by the restart script is exempt from this shutdown behavior. On macOS, closing the last window keeps the application running; use Quit or Cmd+Q to exit Electron.
+
+Restart pnpm dev after changing shared/ or desktop build configuration. The desktop watcher currently watches only TypeScript files under electron/; Nuxt HMR does not update the copies of shared code bundled into the main process or preloads.
 
 Set PORT in your shell to choose another port. A conflicting port fails explicitly; the app will not silently attach to another local server.
 
@@ -38,8 +42,11 @@ pnpm build      # static Nuxt renderer + main/preload bundles
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm exec vitest run tests/unit/dev.test.mjs # deterministic development restart regressions
 pnpm test:e2e   # actual Electron integration tests; no Chrome download needed
 ```
+
+The development regressions directly import scripts/dev.mjs with controlled builds, filesystem notifications and child-process events. They cover consecutive saves during a rebuild, a queued save after a failed build, quitting Electron during a rebuild, a planned restart followed by a user exit, and Ctrl+C while a build is pending. CI runs them on all three operating systems and checks the Windows taskkill or macOS/Linux process-group termination command. The Electron integration test separately launches the built static application; it does not exercise the development supervisor. For a full development smoke test, save desktop code repeatedly, confirm the final version loads, quit during a rebuild, and then restart pnpm dev on the same port.
 
 ## Embedded applications
 
@@ -81,6 +88,8 @@ CI has passed frozen installation, lint, type checking, unit tests, actual Elect
 An unsigned local package is useful for smoke tests. Published macOS releases require Developer ID signing and notarization. Release CI requires signing credentials for Windows as well.
 
 Signing, notarization and an installed app's real cross-version update still need validation with release credentials. The current guest example opens one application at a time; multi-tab workspaces, account profiles, OAuth popups and downloads are product integration work.
+
+Before treating the release workflow as validated, install the signed macOS and Windows artifacts on clean machines, verify macOS notarization/Gatekeeper acceptance, and test an installed version N updating to a published stable N+1. Confirm that application identity and website storage survive the upgrade. Draft releases are excluded from the default update feed, so an unpublished draft alone cannot validate the complete update path. Record the tested versions, operating systems and architectures; macOS x64 still needs its own build and installation evidence.
 
 ## Automatic application updates
 
@@ -134,6 +143,8 @@ GITHUB_TOKEN is provided by GitHub Actions with contents: write. The template do
 ## Template maintenance
 
 Dependency updates are maintained manually; this template does not configure Dependabot PRs. Use pnpm outdated to check for new releases, update the package manifest and lockfile together, and run CI before merging. CI checks types, lint, security policy tests, actual Electron behavior and native packaging. The installed application's automatic update flow is configured separately in electron/updates.ts and the Release workflow.
+
+Run pnpm audit --prod for runtime dependencies and pnpm audit for the complete development toolchain, and record their results separately. A clean runtime audit does not establish that packaging, linting or other build tools have no advisories. Review full-toolchain findings even when those dependencies are excluded from the installed app.
 
 TypeScript stays on the latest compatible 6.0.3 release: stock TypeScript 7 removes the classic compiler API required by vue-tsc 3.3.13 and is outside typescript-eslint's peer range. Node typings stay on the latest Node 24 release line to match the build runtime. Build script approval is explicit in pnpm-workspace.yaml. The template does not need nuxt-electron, renderer Node polyfills, PWA caching or a bundled web server.
 

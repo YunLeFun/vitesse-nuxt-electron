@@ -17,6 +17,8 @@ await new Promise((resolve, reject) => {
 const children = new Set()
 let stopping = false
 let restarting = false
+let restartRequested = false
+let expectedExit
 let electronProcess
 let watcher
 let debounce
@@ -35,13 +37,13 @@ function start(bin, args, env = {}) {
   })
   child.once('exit', (code) => {
     children.delete(child)
-    if (!stopping && (child !== electronProcess || !restarting))
+    if (!stopping && child !== expectedExit)
       shutdown(code || 0)
   })
   return child
 }
 function kill(child) {
-  if (!child?.pid)
+  if (!child?.pid || child.exitCode !== null || child.signalCode !== null)
     return
   if (process.platform === 'win32') {
     execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {})
@@ -59,6 +61,7 @@ function shutdown(code = 0) {
   if (stopping)
     return
   stopping = true
+  restartRequested = false
   clearTimeout(debounce)
   watcher?.close()
   for (const child of children) kill(child)
@@ -91,19 +94,41 @@ try {
   if (!stopping)
     electronProcess = start(packageBin('@electron-forge/cli', 'electron-forge'), ['start'], { TEMPLATE_DEV_ORIGIN: origin })
   const restart = async () => {
-    if (restarting || stopping)
+    if (stopping)
+      return
+    restartRequested = true
+    if (restarting)
       return
     restarting = true
     try {
-      await buildElectron()
-      const old = electronProcess
-      if (old) {
-        const exited = new Promise(resolve => old.once('exit', resolve))
-        kill(old)
-        await exited
+      while (restartRequested && !stopping) {
+        restartRequested = false
+        try {
+          await buildElectron()
+        }
+        catch (error) {
+          console.error(error)
+          continue
+        }
+        if (stopping)
+          break
+        // Finish queued edits before launching a replacement with stale bundles.
+        if (restartRequested)
+          continue
+        const old = electronProcess
+        if (old && old.exitCode === null && old.signalCode === null) {
+          expectedExit = old
+          try {
+            const exited = new Promise(resolve => old.once('exit', resolve))
+            kill(old)
+            await exited
+          }
+          finally { expectedExit = undefined }
+        }
+        electronProcess = undefined
+        if (!stopping && !restartRequested)
+          electronProcess = start(packageBin('@electron-forge/cli', 'electron-forge'), ['start'], { TEMPLATE_DEV_ORIGIN: origin })
       }
-      if (!stopping)
-        electronProcess = start(packageBin('@electron-forge/cli', 'electron-forge'), ['start'], { TEMPLATE_DEV_ORIGIN: origin })
     }
     catch (error) { console.error(error) }
     finally { restarting = false }
