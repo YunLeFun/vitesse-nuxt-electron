@@ -57,6 +57,13 @@ nodeLinker: hoisted
 shellEmulator: true
 verifyDepsBeforeRun: error
 
+# Nuxt DevTools still selects simple-git 3, whose unsafe-operation guard is vulnerable.
+overrides:
+  '@nuxt/devtools>simple-git': 4.0.2
+
+patchedDependencies:
+  '@nuxt/devtools@3.4.2': patches/@nuxt__devtools@3.4.2.patch
+
 allowBuilds:
   '@parcel/watcher': true
   electron: true

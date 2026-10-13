@@ -131,6 +131,8 @@ TypeScript stays on the latest compatible 6.0.3 release: stock TypeScript 7 remo
 
 The pnpm trust policy remains enabled. Its exact-version exceptions cover cssnano releases whose publish evidence changed from staged publishing to trusted GitHub publishing. Their npm provenance was reviewed against the upstream cssnano/cssnano publish workflow and the source commits recorded in pnpm-workspace.yaml. They do not exempt future releases; remove them when the locked releases pass the seven-day trust review window.
 
+Nuxt DevTools currently selects simple-git 3. The template overrides it to the patched 4.0.2 release and applies a one-line DevTools patch to use the named simpleGit export introduced by that major version. Remove the override and patch when upstream DevTools adopts the fixed release.
+
 ## Structure
 
 ```text
